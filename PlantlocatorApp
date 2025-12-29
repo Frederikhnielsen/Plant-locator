@@ -1,0 +1,468 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Edit2, Save, X, MapPin, ChevronDown, ChevronUp, Camera } from 'lucide-react';
+
+export default function GardenTracker() {
+  const [sections, setSections] = useState([]);
+  const [plants, setPlants] = useState([]);
+  const [showSectionForm, setShowSectionForm] = useState(false);
+  const [showPlantForm, setShowPlantForm] = useState(false);
+  const [editingSection, setEditingSection] = useState(null);
+  const [editingPlant, setEditingPlant] = useState(null);
+  const [selectedSection, setSelectedSection] = useState('all');
+  const [hideSections, setHideSections] = useState(false);
+  
+  const [sectionForm, setSectionForm] = useState({ name: '', description: '' });
+  const [plantForm, setPlantForm] = useState({
+    name: '',
+    location: '',
+    locationDescription: '',
+    harvestTime: '',
+    lastHarvestDate: '',
+    description: '',
+    image: ''
+  });
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const sectionsData = await window.storage.get('garden-sections');
+      const plantsData = await window.storage.get('garden-plants');
+      
+      if (sectionsData) setSections(JSON.parse(sectionsData.value));
+      if (plantsData) setPlants(JSON.parse(plantsData.value));
+    } catch (error) {
+      console.log('Ingen gemt data fundet');
+    }
+  };
+
+  const saveData = async (newSections, newPlants) => {
+    try {
+      await window.storage.set('garden-sections', JSON.stringify(newSections));
+      await window.storage.set('garden-plants', JSON.stringify(newPlants));
+    } catch (error) {
+      console.error('Fejl ved lagring af data:', error);
+    }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPlantForm({ ...plantForm, image: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddSection = () => {
+    if (!sectionForm.name.trim()) return;
+    
+    const newSection = {
+      id: Date.now(),
+      name: sectionForm.name,
+      description: sectionForm.description
+    };
+    
+    const newSections = [...sections, newSection];
+    setSections(newSections);
+    saveData(newSections, plants);
+    setSectionForm({ name: '', description: '' });
+    setShowSectionForm(false);
+  };
+
+  const handleEditSection = (section) => {
+    setEditingSection(section.id);
+    setSectionForm({ name: section.name, description: section.description || '' });
+  };
+
+  const handleUpdateSection = () => {
+    const newSections = sections.map(s => 
+      s.id === editingSection ? { ...s, name: sectionForm.name, description: sectionForm.description } : s
+    );
+    setSections(newSections);
+    saveData(newSections, plants);
+    setEditingSection(null);
+    setSectionForm({ name: '', description: '' });
+  };
+
+  const handleDeleteSection = (id) => {
+    const newSections = sections.filter(s => s.id !== id);
+    setSections(newSections);
+    saveData(newSections, plants);
+  };
+
+  const handleAddPlant = () => {
+    if (!plantForm.name.trim() || !plantForm.location) return;
+    
+    const newPlant = {
+      id: Date.now(),
+      ...plantForm
+    };
+    
+    const newPlants = [...plants, newPlant];
+    setPlants(newPlants);
+    saveData(sections, newPlants);
+    setPlantForm({ name: '', location: '', locationDescription: '', harvestTime: '', lastHarvestDate: '', description: '', image: '' });
+    setShowPlantForm(false);
+  };
+
+  const handleEditPlant = (plant) => {
+    setEditingPlant(plant.id);
+    setPlantForm({
+      name: plant.name,
+      location: plant.location,
+      locationDescription: plant.locationDescription || '',
+      harvestTime: plant.harvestTime,
+      lastHarvestDate: plant.lastHarvestDate || '',
+      description: plant.description,
+      image: plant.image || ''
+    });
+    setShowPlantForm(true);
+  };
+
+  const handleUpdatePlant = () => {
+    const newPlants = plants.map(p => 
+      p.id === editingPlant ? { ...p, ...plantForm } : p
+    );
+    setPlants(newPlants);
+    saveData(sections, newPlants);
+    setEditingPlant(null);
+    setPlantForm({ name: '', location: '', locationDescription: '', harvestTime: '', lastHarvestDate: '', description: '', image: '' });
+    setShowPlantForm(false);
+  };
+
+  const handleDeletePlant = (id) => {
+    const newPlants = plants.filter(p => p.id !== id);
+    setPlants(newPlants);
+    saveData(sections, newPlants);
+  };
+
+  const filteredPlants = selectedSection === 'all' 
+    ? plants 
+    : plants.filter(p => String(p.location) === String(selectedSection));
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 p-4">
+      <div className="max-w-6xl mx-auto">
+        <header className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-green-800 mb-2">🌱 Haveoversigt</h1>
+          <p className="text-green-600">Hold styr på dine spiselige planter</p>
+        </header>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          {/* Sections Panel */}
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-green-800">Haveafsnit</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setHideSections(!hideSections)}
+                  className="p-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  title={hideSections ? "Vis afsnit" : "Skjul afsnit"}
+                >
+                  {hideSections ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                </button>
+                <button
+                  onClick={() => setShowSectionForm(!showSectionForm)}
+                  className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+            </div>
+
+            {!hideSections && (
+              <>
+                {showSectionForm && (
+                  <div className="mb-4 p-4 bg-green-50 rounded-lg">
+                    <input
+                      type="text"
+                      placeholder="Afsnitsnavn"
+                      value={sectionForm.name}
+                      onChange={(e) => setSectionForm({ ...sectionForm, name: e.target.value })}
+                      className="w-full p-2 border rounded mb-2"
+                    />
+                    <textarea
+                      placeholder="Placeringsbeskrivelse (valgfri)"
+                      value={sectionForm.description}
+                      onChange={(e) => setSectionForm({ ...sectionForm, description: e.target.value })}
+                      className="w-full p-2 border rounded mb-2 h-20"
+                    />
+                    <button
+                      onClick={handleAddSection}
+                      className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
+                    >
+                      Tilføj afsnit
+                    </button>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setSelectedSection('all')}
+                    className={`w-full p-3 rounded-lg text-left ${
+                      selectedSection === 'all' 
+                        ? 'bg-green-600 text-white' 
+                        : 'bg-gray-100 hover:bg-gray-200'
+                    }`}
+                  >
+                    Alle planter ({plants.length})
+                  </button>
+                  
+                  {sections.map(section => (
+                    <div key={section.id} className="relative">
+                      {editingSection === section.id ? (
+                        <div className="p-2 bg-green-50 rounded-lg">
+                          <input
+                            type="text"
+                            value={sectionForm.name}
+                            onChange={(e) => setSectionForm({ ...sectionForm, name: e.target.value })}
+                            className="w-full p-2 border rounded mb-2"
+                          />
+                          <textarea
+                            placeholder="Placeringsbeskrivelse"
+                            value={sectionForm.description}
+                            onChange={(e) => setSectionForm({ ...sectionForm, description: e.target.value })}
+                            className="w-full p-2 border rounded mb-2 h-20"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleUpdateSection}
+                              className="flex-1 bg-green-600 text-white py-1 rounded"
+                            >
+                              <Save size={16} className="inline" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingSection(null);
+                                setSectionForm({ name: '', description: '' });
+                              }}
+                              className="flex-1 bg-gray-300 py-1 rounded"
+                            >
+                              <X size={16} className="inline" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelectedSection(section.id)}
+                            className={`flex-1 p-3 rounded-lg text-left ${
+                              selectedSection === section.id 
+                                ? 'bg-green-600 text-white' 
+                                : 'bg-gray-100 hover:bg-gray-200'
+                            }`}
+                          >
+                            <MapPin size={16} className="inline mr-2" />
+                            <div>
+                              <div className="font-semibold">{section.name} ({plants.filter(p => String(p.location) === String(section.id)).length})</div>
+                              {section.description && (
+                                <div className="text-xs mt-1 opacity-80">{section.description}</div>
+                              )}
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleEditSection(section)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSection(section.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Plants Panel */}
+          <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-green-800">Planter</h2>
+              <button
+                onClick={() => {
+                  setShowPlantForm(!showPlantForm);
+                  if (editingPlant) {
+                    setEditingPlant(null);
+                    setPlantForm({ name: '', location: '', locationDescription: '', harvestTime: '', lastHarvestDate: '', description: '', image: '' });
+                  }
+                }}
+                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+
+            {showPlantForm && (
+              <div className="mb-6 p-4 bg-green-50 rounded-lg">
+                <h3 className="font-bold mb-3">
+                  {editingPlant ? 'Rediger plante' : 'Tilføj ny plante'}
+                </h3>
+                
+                {/* Image Upload */}
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Billede
+                  </label>
+                  <div className="flex items-center gap-3">
+                    {plantForm.image && (
+                      <img 
+                        src={plantForm.image} 
+                        alt="Plante forhåndsvisning" 
+                        className="w-20 h-20 object-cover rounded-lg border"
+                      />
+                    )}
+                    <label className="cursor-pointer bg-white border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-green-500 flex items-center gap-2">
+                      <Camera size={20} className="text-gray-500" />
+                      <span className="text-sm text-gray-600">
+                        {plantForm.image ? 'Skift billede' : 'Upload billede'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    {plantForm.image && (
+                      <button
+                        onClick={() => setPlantForm({ ...plantForm, image: '' })}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Plantenavn *"
+                  value={plantForm.name}
+                  onChange={(e) => setPlantForm({ ...plantForm, name: e.target.value })}
+                  className="w-full p-2 border rounded mb-2"
+                />
+                <select
+                  value={plantForm.location}
+                  onChange={(e) => setPlantForm({ ...plantForm, location: e.target.value })}
+                  className="w-full p-2 border rounded mb-2"
+                >
+                  <option value="">Vælg placering *</option>
+                  {sections.map(section => (
+                    <option key={section.id} value={section.id}>{section.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Placeringsbeskrivelse (f.eks. ved hegnet)"
+                  value={plantForm.locationDescription}
+                  onChange={(e) => setPlantForm({ ...plantForm, locationDescription: e.target.value })}
+                  className="w-full p-2 border rounded mb-2"
+                />
+                <input
+                  type="text"
+                  placeholder="Høsttidspunkt (f.eks. juni-august)"
+                  value={plantForm.harvestTime}
+                  onChange={(e) => setPlantForm({ ...plantForm, harvestTime: e.target.value })}
+                  className="w-full p-2 border rounded mb-2"
+                />
+                <input
+                  type="date"
+                  placeholder="Sidste høstdato"
+                  value={plantForm.lastHarvestDate}
+                  onChange={(e) => setPlantForm({ ...plantForm, lastHarvestDate: e.target.value })}
+                  className="w-full p-2 border rounded mb-2"
+                />
+                <textarea
+                  placeholder="Beskrivelse"
+                  value={plantForm.description}
+                  onChange={(e) => setPlantForm({ ...plantForm, description: e.target.value })}
+                  className="w-full p-2 border rounded mb-2 h-24"
+                />
+                <button
+                  onClick={editingPlant ? handleUpdatePlant : handleAddPlant}
+                  className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
+                >
+                  {editingPlant ? 'Opdater plante' : 'Tilføj plante'}
+                </button>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {filteredPlants.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  Ingen planter endnu. Tilføj din første plante for at komme i gang!
+                </p>
+              ) : (
+                filteredPlants.map(plant => {
+                  const section = sections.find(s => String(s.id) === String(plant.location));
+                  return (
+                    <div key={plant.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex gap-4">
+                        {plant.image && (
+                          <img 
+                            src={plant.image} 
+                            alt={plant.name} 
+                            className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start mb-2">
+                            <h3 className="text-lg font-bold text-green-800">{plant.name}</h3>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditPlant(plant)}
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDeletePlant(plant.id)}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p>
+                              <MapPin size={14} className="inline mr-1" />
+                              <strong>Placering:</strong> {section?.name || 'Ukendt'}
+                            </p>
+                            {plant.locationDescription && (
+                              <p className="ml-5 text-gray-500 italic">{plant.locationDescription}</p>
+                            )}
+                            {plant.harvestTime && (
+                              <p><strong>Høsttid:</strong> {plant.harvestTime}</p>
+                            )}
+                            {plant.lastHarvestDate && (
+                              <p><strong>Sidste høst:</strong> {new Date(plant.lastHarvestDate).toLocaleDateString('da-DK')}</p>
+                            )}
+                            {plant.description && (
+                              <p className="mt-2 text-gray-700">{plant.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
